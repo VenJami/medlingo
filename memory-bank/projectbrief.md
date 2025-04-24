@@ -11,6 +11,8 @@ Healthcare Translation Web App with Generative AI is a healthcare translation we
 - Language Selection for input/output
 - Deployment with a live link
 - Basic data privacy and security measures
+- Doctor/Patient role assignment
+- Two-participant limit per room (one Doctor, one Patient)
 
 ## Goals
 - Facilitate clear communication between patients and healthcare providers

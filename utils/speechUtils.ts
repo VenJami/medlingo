@@ -65,6 +65,8 @@ export const translateWithAI = async (
 ): Promise<string> => {
   if (!text.trim()) return ''; // Return early if text is empty
 
+  console.log(`[translateWithAI] Starting translation from ${sourceLanguage} to ${targetLanguage}: "${text.substring(0, 50)}..."`);
+
   try {
     const response = await fetch('/api/translate', {
       method: 'POST',
@@ -78,24 +80,26 @@ export const translateWithAI = async (
       }),
     });
 
-    const data = await response.json();
-
     if (!response.ok) {
+      const data = await response.json();
       // Use the error message from the API response if available
       const errorMessage = data?.error || `API request failed with status ${response.status}`;
-      console.error('Translation API error:', errorMessage, data?.details);
+      console.error('[translateWithAI] Translation API error:', errorMessage, data?.details);
       // Construct an error object that might include status
       const error: any = new Error(errorMessage);
       error.status = response.status; 
       throw error; 
     }
 
-    return data.translation || ''; // Return empty string if translation is missing
+    const data = await response.json();
+    const translation = data.translation || '';
+
+    console.log(`[translateWithAI] Translation successful - Result: "${translation.substring(0, 50)}..."`);
+    return translation;
 
   } catch (error: any) {
-    console.error('Translation error in speechUtils calling API:', error);
+    console.error('[translateWithAI] Translation error in speechUtils calling API:', error);
     // Re-throw the error so it can be caught by the component
-    // The component's catch block will handle setting the UI error message
     throw error; 
   }
 };
@@ -103,21 +107,29 @@ export const translateWithAI = async (
 // Save transcript to Firebase
 export const saveTranscript = async (
   roomCode: string,
-  originalText: string,
-  translatedText: string
+  transcriptData: any
 ): Promise<boolean> => {
   try {
-    // Import here to avoid circular dependencies
-    const { updateTranscript } = await import('./firebase');
+    console.log("[saveTranscript] Saving transcript data:", transcriptData);
     
-    return await updateTranscript(
+    // Validate all required fields are present
+    if (!transcriptData.speakerUid || !transcriptData.speakerName || 
+        !transcriptData.originalText || !transcriptData.translatedText ||
+        !transcriptData.originalLang || !transcriptData.targetLang) {
+      console.error("[saveTranscript] Missing required fields in transcript data");
+      return false;
+    }
+    
+    // Import firebase function to save transcript
+    const { saveTranscript: firebaseSaveTranscript } = await import('./firebase');
+    
+    // Call the Firebase function with validated data
+    return await firebaseSaveTranscript(
       roomCode,
-      originalText,
-      translatedText,
-      'auto-detected' // We could enhance this by actually detecting the language
+      transcriptData
     );
   } catch (error) {
-    console.error('Error saving transcript:', error);
+    console.error('[saveTranscript] Error saving transcript:', error);
     return false;
   }
 };

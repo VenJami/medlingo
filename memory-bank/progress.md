@@ -10,8 +10,8 @@
 - Implemented responsive UI layout
 - Created language selection functionality
 - Built speech recognition component using Web Speech API
-- Added translation service using OpenAI API
 - Implemented text-to-speech functionality
+- Implemented translation service using Meta-Llama-3.1-70B-Instruct via GitHub Marketplace.
 - Created dual transcript display
 - Fixed hydration errors caused by browser extensions
 - Implemented client/server component separation for Next.js
@@ -20,43 +20,49 @@
 - Implemented cost-saving measures (caching, lightweight model)
 - Added API key warning for better user experience
 - Developed multi-device communication plan
+- Set up Git version control and pushed initial commit to GitHub
+- Fixed speech recognition start/stop issue caused by incorrect useEffect dependency
+- Implemented Doctor/Patient role assignment and two-participant room logic:
+  - Created modal for name/role input on room creation.
+  - Updated Firebase `createRoom`, `joinRoom`, `leaveRoom` functions for role logic.
+  - Integrated role display and leave functionality in `TranslationApp`.
+  - Prevented new users from joining rooms that already had two participants.
+- **Implemented browser compatibility check on Home screen (`components/Home.tsx`)**: 
+  - Checks for Web Speech API support and specific unsupported browsers (e.g., Edge).
+  - Displays a modal informing users of the requirement for Chrome.
+  - Disables room creation/joining if the browser is unsupported.
 
 ## In Progress
-- Planning Firebase integration for real-time multi-device translation
-- Redesigning application flow for room-based communication
-- Researching best practices for WebRTC and Firebase Realtime Database
+- Enhance Dual Transcript Display for Dynamic Communication
+- Final Testing & Refinement (Will occur after transcript enhancement)
+- Researching best practices for WebRTC and Firebase Realtime Database (ongoing as needed)
 
 ## Planned Next
-### Phase 1: Setup & Core Components (8 hours)
-- Set up Next.js project with TypeScript and TailwindCSS
-- Configure Firebase project and Realtime Database
-- Create basic UI components:
-  - Home/landing page with room creation
-  - Translation interface with dual panels
-  - Language selector component
-  - Control panel (record, stop, speak buttons)
+1.  **Clean up `TranslationApp.tsx`**: Remove redundant browser check logic.
+2.  **Dynamic Transcript Enhancement** (Phases 1-4 outlined below).
 
-### Phase 2: Single-Device Functionality (12 hours)
-- Implement Web Speech API for speech recognition
-- Set up OpenAI API integration for translation
-- Add text-to-speech playback functionality
-- Build language selection interface
-- Create responsive UI for mobile and desktop
+### Dynamic Transcript Enhancement
+#### Phase 1: Data Structure for Conversation Turns
+- Define/refine state structure (`ConversationTurn[]`) to hold speaker details, original/translated text, language, etc.
+- Ensure Firebase transcript listener provides necessary data (UID, text, lang) to populate this structure.
 
-### Phase 3: Multi-Device Communication (12 hours)
-- Implement Firebase authentication (simple anonymous auth)
-- Create room generation and joining functionality
-- Set up real-time data synchronization between devices
-- Implement status indicators (connected users, recording status)
-- Add error handling for connection issues
+#### Phase 2: Dynamic Rendering in Dual Panels
+- Update `TranslationApp` render logic to iterate through `conversationTurns`.
+- Panel 1 (Left): Display viewer's original text or other's translated text.
+- Panel 2 (Right): Display viewer's translated text or other's original text.
+- Add speaker labels (You/Doctor/Patient + Name) to each turn in both panels.
+- Implement auto-scrolling.
+- (Optional) Add visual cues like highlighting or background differences.
 
-### Phase 4: Testing & Refinement (8 hours)
-- Test on multiple devices and browsers
-- Optimize for different network conditions
-- Improve error handling and user feedback
-- Fix bugs and performance issues
+#### Phase 3: State Management and Synchronization
+- Update `handleTranslation` to construct and save the full `ConversationTurn` object locally and to Firebase.
+- Update `listenToTranscripts` callback to correctly process incoming data into the `conversationTurns` state.
 
-### Phase 5: Deployment & Documentation (8 hours)
+#### Phase 4: Testing
+- Test back-and-forth conversations with different languages.
+- Verify panel contents, speaker labels, real-time updates, and scrolling.
+
+### Deployment & Documentation (Was Phase 5)
 - Deploy to Vercel
 - Create simple documentation for demonstration
 - Prepare test cases for showcasing functionality
@@ -64,25 +70,26 @@
 
 ## Blockers
 - Limited time constraint (48-hour development window)
-- Browser compatibility issues with Web Speech API
-- Potential OpenAI API rate limits
+- ~~Browser compatibility issues with Web Speech API~~ (Partially mitigated by check on Home screen; Chrome required for full features)
+- Potential rate limits/costs for GitHub Marketplace Models API.
+- Latency considerations for Llama 3.1 70B model during real-time use.
 - Need for real medical terminology testing
-- Learning curve for Firebase Realtime Database implementation
+- Learning curve for Firebase Realtime Database implementation - (Partially addressed)
 - Testing multi-device communication requires multiple devices/browsers
 
 ## Milestones
 - Project initialization and planning: Complete
 - New multi-device architecture planning: Complete
-- Basic UI implementation: Partially Complete (needs updates for multi-device)
-- Speech recognition integration: Partially Complete (needs multi-device sync)
-- Translation functionality: Partially Complete (needs multi-device sync)
-- Text-to-speech implementation: Partially Complete (needs multi-device sync)
-- Responsive design implementation: Partially Complete (needs room UI)
-- Client/server architecture optimization: In Progress
-- Firebase integration: Not Started
-- Multi-device communication: Not Started
-- Testing and refinement: Not Started
-- Deployment: Not Started
+- Basic UI implementation: Complete (including room creation/joining modal)
+- Speech recognition integration: Complete (**Browser check added to Home screen**)
+- Translation functionality: Complete (within room context)
+- Text-to-speech implementation: Complete (within room context)
+- Responsive design implementation: Complete (for current scope)
+- Client/server architecture optimization: In Progress (Review if needed)
+- Firebase integration: Complete (for room logic and roles)
+- Multi-device communication: Complete (via Firebase roles/sync - UI enhancement pending)
+- Testing and refinement: In Progress (Role system tested, transcript enhancement testing needed)
+- Deployment: Not Started (Code pushed to GitHub)
 - Demonstration preparation: Not Started
 
 ## Open Questions

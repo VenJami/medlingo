@@ -14,6 +14,7 @@ Language barriers pose significant challenges in healthcare settings, leading to
 - Seamless voice-to-text conversion with high accuracy
 - Natural-sounding audio playback of translations
 - Clear visual distinction between original and translated content
+- **Inform users upfront about browser requirements for core features (e.g., speech recognition).**
 
 ## Key Features
 - Voice-to-text transcription optimized for medical terminology
@@ -21,7 +22,9 @@ Language barriers pose significant challenges in healthcare settings, leading to
 - Audio playback of translated text
 - Mobile-first responsive design
 - Easy language selection for both input and output
-- Dual transcript display showing original and translated text
+- Enhanced Dual Transcript Display: Shows conversation turns with clear speaker labels (You/Doctor/Patient + Name). Each panel dynamically displays text relevant to the viewer (original or translated) to improve clarity.
+- Doctor/Patient role assignment for two-participant sessions
+- **Browser compatibility check on Home screen with user notification.**
 
 ## Success Metrics
 - Translation accuracy rate, especially for medical terms

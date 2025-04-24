@@ -9,6 +9,15 @@ MedLIngo is a real-time healthcare translation web application that facilitates 
 - Text-to-speech capability for translated content
 - Multi-device communication with room-based sessions
 - Mobile-responsive design
+- **Browser compatibility check (recommends Chrome for speech features)**
+
+## Browser Compatibility
+
+**Important:** This application utilizes the Web Speech API for real-time voice transcription. Currently, browser support for this API varies. 
+
+- **Google Chrome (or Chromium-based browsers like Brave, new Edge versions)** provide the most reliable experience for speech recognition features.
+- Other browsers (like Firefox, Safari, older Edge) may have limited or no support. 
+- The application will display a notification modal on the home screen if your browser is detected as unsupported, recommending you switch to Chrome.
 
 ## Getting Started
 
@@ -17,6 +26,7 @@ MedLIngo is a real-time healthcare translation web application that facilitates 
 - Node.js (latest LTS version)
 - NPM or Yarn
 - Firebase account
+- **Google Chrome (Recommended for full functionality)**
 
 ### Installation
 
@@ -49,8 +59,8 @@ npm install
    NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
    NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 
-   # OpenAI API Key (if using real translations)
-   OPENAI_API_KEY=your-openai-api-key
+   # GitHub Marketplace Model Credentials (if required)
+   GITHUB_MARKETPLACE_API_CREDENTIALS=your-credentials # Check GitHub Marketplace model documentation for required credentials
    ```
 
 5. Run the development server
@@ -89,13 +99,14 @@ For proper functionality, configure your Firebase Realtime Database security rul
 
 ## Usage
 
-1. Open the app on two separate devices or browser windows
-2. On the first device, click "Create Translation Room"
-3. Note the room code that appears
-4. On the second device, enter the room code and click "Join Room"
-5. Begin speaking in your selected language
-6. The speech will be transcribed, translated, and displayed on both devices
-7. Use the "Speak" button to hear the translation
+1. **Open the app in Google Chrome (recommended).** If using an unsupported browser, you will see a notification.
+2. Open the app on two separate devices or browser windows.
+3. On the first device, click "Create Translation Room" (enter name/role).
+4. Note the room code that appears.
+5. On the second device, enter the room code and your name, then click "Join Room".
+6. Begin speaking in your selected language.
+7. The speech will be transcribed, translated, and displayed on both devices.
+8. Use the "Speak" button to hear the translation.
 
 ## Technologies Used
 
@@ -104,7 +115,7 @@ For proper functionality, configure your Firebase Realtime Database security rul
 - TypeScript
 - Firebase (Realtime Database and Authentication)
 - Web Speech API
-- OpenAI API
+- Meta-Llama-3.1-70B-Instruct (via GitHub Marketplace)
 - Tailwind CSS
 
 ## License

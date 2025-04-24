@@ -5,7 +5,7 @@
 - **Client Components**: React components with 'use client' directive
 - **Server Components**: Next.js App Router server components
 - **Speech Recognition**: Web Speech API (browser-native)
-- **Translation**: OpenAI API (gpt-3.5-turbo model)
+- **Translation**: Meta-Llama-3.1-70B-Instruct (via GitHub Marketplace Models API)
 - **Text-to-Speech**: Web Speech API SpeechSynthesis
 - **Real-time Communication**: Firebase Realtime Database
 - **Authentication**: Firebase Anonymous Auth
@@ -21,6 +21,7 @@
 - Chrome browser for development and testing
 - IDE: Cursor
 - Firebase CLI for local development and deployment
+- GitHub: For remote repository hosting (https://github.com/VenJami/medlingo.git)
 
 ## Build & Deployment Process
 1. Development on local environment (http://localhost:3001)
@@ -31,17 +32,16 @@
 
 ## Dependencies
 - **React/Next.js**: Core application framework
-- **OpenAI API Client**: For generative AI translation
+- **[Library Name] for GitHub Marketplace Models API interaction** (if applicable)
 - **Firebase**: For real-time database and authentication
 - **TailwindCSS**: For styling
 - **TypeScript**: For type safety
 - **Web Speech API**: Browser native capabilities for speech
 
 ## API Integrations
-- **OpenAI API**: For high-quality translations with medical context
-  - Using gpt-3.5-turbo model for cost-effectiveness
-  - Custom prompts for medical terminology accuracy
-  - In-memory caching to reduce API calls
+- **Llama Translation API (GitHub Marketplace)**: For high-quality translations with medical context
+  - Using Meta-Llama-3.1-70B-Instruct model via GitHub Marketplace (https://github.com/marketplace/models/azureml-meta/Meta-Llama-3-1-70B-Instruct)
+  - Requires specific prompts/handling for medical terminology (TBD)
 - **Web Speech API**: 
   - SpeechRecognition for voice-to-text
   - SpeechSynthesis for text-to-speech
@@ -52,8 +52,9 @@
 
 ## Technical Constraints
 - Browser compatibility (Speech API works best in Chrome)
-- API key security in client-side applications
-- OpenAI API rate limits and costs
+- API key security in client-side applications (Consider backend proxy for GitHub Marketplace API if sensitive)
+- Potential rate limits and costs associated with GitHub Marketplace Models API.
+- Latency considerations for large Llama 3.1 70B model.
 - Mobile device microphone access permissions
 - Real-time performance requirements
 - Hydration errors from browser extensions (now suppressed)

@@ -3,13 +3,20 @@
 import { useState, useEffect } from 'react';
 import { signInAnonymouslyWithFirebase, createRoom, joinRoom } from '../utils/firebase';
 import TranslationApp from './TranslationApp';
+import CreateRoomModal from './CreateRoomModal';
+
+type Role = 'doctor' | 'patient';
 
 const Home = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
   const [roomCode, setRoomCode] = useState<string | null>(null);
   const [inputRoomCode, setInputRoomCode] = useState('');
+  const [joinUserName, setJoinUserName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   useEffect(() => {
     const authenticateUser = async () => {
@@ -31,13 +38,18 @@ const Home = () => {
     authenticateUser();
   }, []);
 
-  const handleCreateRoom = async () => {
-    setIsLoading(true);
+  const handleOpenCreateModal = () => {
+    setIsCreateModalOpen(true);
+  };
+
+  const handleModalCreateSubmit = async (name: string, role: Role) => {
+    setIsCreatingRoom(true);
     setError(null);
     try {
-      const code = await createRoom();
+      const code = await createRoom(name, role);
       if (code) {
         setRoomCode(code);
+        setIsCreateModalOpen(false);
       } else {
         setError('Failed to create room. Please try again.');
       }
@@ -45,31 +57,37 @@ const Home = () => {
       console.error('Error creating room:', err);
       setError('Failed to create room. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsCreatingRoom(false);
     }
   };
 
   const handleJoinRoom = async () => {
-    if (!inputRoomCode.trim()) {
+    const code = inputRoomCode.trim().toUpperCase();
+    const name = joinUserName.trim();
+
+    if (!code) {
       setError('Please enter a room code.');
       return;
     }
+    if (!name) {
+      setError('Please enter your name to join.');
+      return;
+    }
 
-    setIsLoading(true);
+    setIsJoiningRoom(true);
     setError(null);
     try {
-      const roomCode = inputRoomCode.trim().toUpperCase();
-      const success = await joinRoom(roomCode);
+      const success = await joinRoom(code, name);
       if (success) {
-        setRoomCode(roomCode);
+        setRoomCode(code);
       } else {
-        setError('Room not found or cannot be joined. Please check the code and try again.');
+        setError('Room not found, is full, or cannot be joined. Please check the code and try again.');
       }
     } catch (err) {
       console.error('Error joining room:', err);
       setError('Failed to join room. Please try again.');
     } finally {
-      setIsLoading(false);
+      setIsJoiningRoom(false);
     }
   };
 
@@ -139,7 +157,7 @@ const Home = () => {
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite'
               }}></div>
-              <style jsx>{`
+              <style>{`
                 @keyframes spin {
                   0% { transform: rotate(0deg); }
                   100% { transform: rotate(360deg); }
@@ -163,8 +181,8 @@ const Home = () => {
               )}
 
               <button
-                onClick={handleCreateRoom}
-                disabled={!isAuthenticated || isLoading}
+                onClick={handleOpenCreateModal}
+                disabled={!isAuthenticated || isLoading || isCreatingRoom}
                 style={{
                   width: '100%',
                   padding: '0.875rem 1.5rem',
@@ -177,8 +195,8 @@ const Home = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   marginBottom: '1.5rem',
-                  opacity: !isAuthenticated || isLoading ? '0.6' : '1',
-                  pointerEvents: !isAuthenticated || isLoading ? 'none' : 'auto',
+                  opacity: !isAuthenticated || isLoading || isCreatingRoom ? '0.6' : '1',
+                  pointerEvents: !isAuthenticated || isLoading || isCreatingRoom ? 'none' : 'auto',
                   boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)'
                 }}
               >
@@ -216,6 +234,27 @@ const Home = () => {
                   value={inputRoomCode}
                   onChange={(e) => setInputRoomCode(e.target.value)}
                   placeholder="Enter room code"
+                  disabled={isJoiningRoom}
+                  style={{
+                    width: '100%',
+                    padding: '0.875rem 1rem',
+                    borderRadius: '10px',
+                    fontSize: '1rem',
+                    marginBottom: '1rem',
+                    background: 'rgba(255, 255, 255, 0.07)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    boxSizing: 'border-box',
+                    transition: 'all 0.2s',
+                    outline: 'none'
+                  }}
+                />
+                <input
+                  type="text"
+                  value={joinUserName}
+                  onChange={(e) => setJoinUserName(e.target.value)}
+                  placeholder="Enter your name"
+                  disabled={isJoiningRoom}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1rem',
@@ -232,7 +271,7 @@ const Home = () => {
                 />
                 <button
                   onClick={handleJoinRoom}
-                  disabled={!isAuthenticated || isLoading || !inputRoomCode.trim()}
+                  disabled={!isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim()}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1.5rem',
@@ -244,8 +283,8 @@ const Home = () => {
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: !isAuthenticated || isLoading || !inputRoomCode.trim() ? '0.6' : '1',
-                    pointerEvents: !isAuthenticated || isLoading || !inputRoomCode.trim() ? 'none' : 'auto',
+                    opacity: !isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim() ? '0.6' : '1',
+                    pointerEvents: !isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim() ? 'none' : 'auto',
                     boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
                   }}
                 >
@@ -256,6 +295,13 @@ const Home = () => {
           )}
         </div>
       </div>
+
+      <CreateRoomModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleModalCreateSubmit}
+        isLoading={isCreatingRoom}
+      />
     </div>
   );
 };
