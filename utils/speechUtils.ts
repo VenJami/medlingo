@@ -2,19 +2,46 @@ import { translateText } from './translation';
 
 // Get the appropriate SpeechRecognition implementation
 export const getSpeechRecognition = (): any => {
-  if (typeof window === 'undefined') return null;
-  
-  // Browser detection for speech recognition
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition || 
-                          window.mozSpeechRecognition || window.msSpeechRecognition || 
-                          window.oSpeechRecognition;
-  
-  if (!SpeechRecognition) {
-    console.warn('Speech recognition not supported in this browser');
+  console.log('[getSpeechRecognition] Checking browser support...');
+  if (typeof window === 'undefined') {
+    console.log('[getSpeechRecognition] Window is undefined (SSR?). Returning null.');
     return null;
   }
   
-  return new SpeechRecognition();
+  console.log('[getSpeechRecognition] window.SpeechRecognition:', !!window.SpeechRecognition);
+  console.log('[getSpeechRecognition] window.webkitSpeechRecognition:', !!window.webkitSpeechRecognition);
+  console.log('[getSpeechRecognition] window.msSpeechRecognition:', !!(window as any).msSpeechRecognition);
+
+  // Prioritize standard and webkit implementations, known to work well.
+  // Explicitly ignore msSpeechRecognition which might exist but be incompatible.
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+  
+  if (!SpeechRecognition) {
+    console.warn('[getSpeechRecognition] No supported SpeechRecognition API found (standard/webkit). Returning null.');
+    return null;
+  }
+  
+  // Additional check: Ensure it's not the potentially problematic msSpeechRecognition 
+  // even if it somehow got assigned (unlikely with the above logic, but safer)
+  if ((SpeechRecognition as any) === (window as any).msSpeechRecognition) {
+      console.warn('[getSpeechRecognition] msSpeechRecognition detected and ignored. Returning null.');
+      return null;
+  }
+
+  // Check if we can actually instantiate it
+  try {
+    console.log('[getSpeechRecognition] Attempting to instantiate:', SpeechRecognition);
+    const instance = new SpeechRecognition();
+    if (instance) {
+        console.log('[getSpeechRecognition] Instantiation successful. Returning constructor.', SpeechRecognition);
+        return SpeechRecognition; // Return the constructor itself, not an instance
+    }
+    console.warn('[getSpeechRecognition] Instantiation returned falsy value. Returning null.');
+    return null;
+  } catch (e) {
+      console.warn('[getSpeechRecognition] Instantiation failed with error. Returning null.', e);
+      return null;
+  }
 };
 
 // Get available voices for speech synthesis

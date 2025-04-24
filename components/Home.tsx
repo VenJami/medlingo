@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { signInAnonymouslyWithFirebase, createRoom, joinRoom } from '../utils/firebase';
 import TranslationApp from './TranslationApp';
 import CreateRoomModal from './CreateRoomModal';
+import { getSpeechRecognition } from '../utils/speechUtils';
 
 type Role = 'doctor' | 'patient';
 
@@ -17,6 +18,8 @@ const Home = () => {
   const [joinUserName, setJoinUserName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isBrowserSupported, setIsBrowserSupported] = useState(true);
+  const [isCompatibilityModalOpen, setIsCompatibilityModalOpen] = useState(false);
 
   useEffect(() => {
     const authenticateUser = async () => {
@@ -36,6 +39,20 @@ const Home = () => {
     };
 
     authenticateUser();
+
+    console.log('[Home useEffect] Running browser compatibility check...');
+    // Check for browser compatibility on mount
+    const SpeechRecognitionAPIConstructor = getSpeechRecognition(); // Renamed for clarity
+    console.log('[Home useEffect] getSpeechRecognition returned:', SpeechRecognitionAPIConstructor);
+    const supported = !!SpeechRecognitionAPIConstructor; // Check if constructor exists
+    console.log('[Home useEffect] Browser supported check result:', supported);
+    setIsBrowserSupported(supported);
+    if (!supported) {
+      console.log('[Home useEffect] Browser not supported, opening compatibility modal.');
+      setIsCompatibilityModalOpen(true); // Show modal if not supported
+    } else {
+      console.log('[Home useEffect] Browser supported.');
+    }
   }, []);
 
   const handleOpenCreateModal = () => {
@@ -110,6 +127,55 @@ const Home = () => {
       color: '#ffffff',
       padding: '2rem'
     }}>
+      {isCompatibilityModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.7)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000,
+          padding: '1rem'
+        }}>
+          <div style={{
+            background: '#2c3347',
+            padding: '2rem',
+            borderRadius: '12px',
+            textAlign: 'center',
+            maxWidth: '400px',
+            boxShadow: '0 5px 15px rgba(0,0,0,0.3)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}>
+            <h2 style={{ marginBottom: '1rem', color: '#f87171' }}>Browser Not Supported</h2>
+            <p style={{ marginBottom: '1.5rem', color: 'rgba(255, 255, 255, 0.8)' }}>
+              This application relies on browser features (Web Speech API) that are not fully supported in your current browser.
+            </p>
+            <p style={{ marginBottom: '1.5rem', color: 'rgba(255, 255, 255, 0.8)' }}>
+              For the best experience, please use the latest version of **Google Chrome**.
+            </p>
+            <button
+              onClick={() => setIsCompatibilityModalOpen(false)}
+              style={{
+                padding: '0.75rem 1.5rem',
+                borderRadius: '8px',
+                background: '#3b82f6',
+                color: '#ffffff',
+                border: 'none',
+                cursor: 'pointer',
+                fontWeight: '500',
+                transition: 'background 0.2s ease'
+              }}
+            >
+              Understood
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{
         maxWidth: '450px',
         width: '100%',
@@ -166,6 +232,20 @@ const Home = () => {
             </div>
           ) : (
             <>
+              {!isBrowserSupported && (
+                <div style={{
+                  padding: '1rem',
+                  marginBottom: '1.5rem',
+                  borderRadius: '8px',
+                  background: 'rgba(234, 179, 8, 0.1)',
+                  color: '#facc15',
+                  fontSize: '0.9rem',
+                  border: '1px solid rgba(234, 179, 8, 0.2)',
+                  textAlign: 'center'
+                }}>
+                  Speech recognition features require Google Chrome for full support. Key functionality will be disabled.
+                </div>
+              )}
               {error && (
                 <div style={{
                   padding: '1rem',
@@ -182,7 +262,7 @@ const Home = () => {
 
               <button
                 onClick={handleOpenCreateModal}
-                disabled={!isAuthenticated || isLoading || isCreatingRoom}
+                disabled={!isAuthenticated || isLoading || isCreatingRoom || !isBrowserSupported}
                 style={{
                   width: '100%',
                   padding: '0.875rem 1.5rem',
@@ -195,8 +275,8 @@ const Home = () => {
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   marginBottom: '1.5rem',
-                  opacity: !isAuthenticated || isLoading || isCreatingRoom ? '0.6' : '1',
-                  pointerEvents: !isAuthenticated || isLoading || isCreatingRoom ? 'none' : 'auto',
+                  opacity: !isAuthenticated || isLoading || isCreatingRoom || !isBrowserSupported ? '0.6' : '1',
+                  pointerEvents: !isAuthenticated || isLoading || isCreatingRoom || !isBrowserSupported ? 'none' : 'auto',
                   boxShadow: '0 4px 10px rgba(59, 130, 246, 0.3)'
                 }}
               >
@@ -234,7 +314,7 @@ const Home = () => {
                   value={inputRoomCode}
                   onChange={(e) => setInputRoomCode(e.target.value)}
                   placeholder="Enter room code"
-                  disabled={isJoiningRoom}
+                  disabled={isJoiningRoom || !isBrowserSupported}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1rem',
@@ -254,7 +334,7 @@ const Home = () => {
                   value={joinUserName}
                   onChange={(e) => setJoinUserName(e.target.value)}
                   placeholder="Enter your name"
-                  disabled={isJoiningRoom}
+                  disabled={isJoiningRoom || !isBrowserSupported}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1rem',
@@ -271,24 +351,24 @@ const Home = () => {
                 />
                 <button
                   onClick={handleJoinRoom}
-                  disabled={!isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim()}
+                  disabled={!isAuthenticated || isLoading || isJoiningRoom || !isBrowserSupported}
                   style={{
                     width: '100%',
                     padding: '0.875rem 1.5rem',
                     borderRadius: '10px',
                     fontSize: '1rem',
                     fontWeight: '500',
-                    background: 'linear-gradient(90deg, #059669, #10b981)',
+                    background: 'linear-gradient(90deg, #10b981, #34d399)',
                     color: '#ffffff',
                     border: 'none',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    opacity: !isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim() ? '0.6' : '1',
-                    pointerEvents: !isAuthenticated || isLoading || isJoiningRoom || !inputRoomCode.trim() || !joinUserName.trim() ? 'none' : 'auto',
-                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)'
+                    opacity: !isAuthenticated || isLoading || isJoiningRoom || !isBrowserSupported ? '0.6' : '1',
+                    pointerEvents: !isAuthenticated || isLoading || isJoiningRoom || !isBrowserSupported ? 'none' : 'auto',
+                    boxShadow: '0 4px 10px rgba(52, 211, 153, 0.3)'
                   }}
                 >
-                  Join Room
+                  {isJoiningRoom ? 'Joining...' : 'Join Room'}
                 </button>
               </div>
             </>
@@ -301,6 +381,7 @@ const Home = () => {
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleModalCreateSubmit}
         isLoading={isCreatingRoom}
+        disabled={!isBrowserSupported}
       />
     </div>
   );

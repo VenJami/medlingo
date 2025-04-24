@@ -9,9 +9,10 @@ interface CreateRoomModalProps {
   onClose: () => void;
   onSubmit: (name: string, role: Role) => void;
   isLoading: boolean;
+  disabled?: boolean;
 }
 
-const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onSubmit, isLoading }) => {
+const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onSubmit, isLoading, disabled }) => {
   const [name, setName] = useState('');
   const [selectedRole, setSelectedRole] = useState<Role | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -221,7 +222,15 @@ const CreateRoomModal: React.FC<CreateRoomModalProps> = ({ isOpen, onClose, onSu
           <button onClick={handleClose} style={styles.button()} disabled={isLoading}>
             Cancel
           </button>
-          <button onClick={handleSubmit} style={styles.button(true)} disabled={isLoading || !agreed || !selectedRole || !name.trim()}>
+          <button 
+            onClick={handleSubmit} 
+            style={{
+                ...styles.button(true),
+                opacity: isLoading || disabled ? 0.6 : 1,
+                pointerEvents: isLoading || disabled ? 'none' : 'auto'
+            }}
+            disabled={isLoading || !agreed || !selectedRole || !name.trim() || disabled}
+          >
             {isLoading ? 'Creating...' : 'Create Room'}
           </button>
         </div>
