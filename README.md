@@ -2,6 +2,10 @@
 
 Real-time speech-to-text and AI translation prototype for doctor–patient conversations.
 
+## Live Demo
+
+[medlingo-mu.vercel.app](https://medlingo-mu.vercel.app/)
+
 ## Features
 
 - Real-time voice-to-text transcription (Web Speech API)
