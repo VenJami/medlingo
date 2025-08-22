@@ -1,4 +1,4 @@
-import { translateText } from './translation';
+// Note: translation utilities are server-side; avoid importing here to keep client bundle lean
 
 // Get the appropriate SpeechRecognition implementation
 export const getSpeechRecognition = (): any => {

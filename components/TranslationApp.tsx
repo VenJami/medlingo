@@ -74,12 +74,13 @@ interface RealtimeSpeechPanel {
 
 const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
   const [isRecording, setIsRecording] = useState(false);
-  const [sourceLanguage, setSourceLanguage] = useState('en-US');
-  const [targetLanguage, setTargetLanguage] = useState('es-ES');
+  const [sourceLanguage, setSourceLanguage] = useState<string | null>(null);
+  const [targetLanguage, setTargetLanguage] = useState<string | null>(null);
   const [conversationTurns, setConversationTurns] = useState<ConversationTurn[]>([]);
 
   const [isTranslating, setIsTranslating] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [showRateLimitBanner, setShowRateLimitBanner] = useState<boolean>(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [roomData, setRoomData] = useState<RoomData | null>(null);
@@ -87,6 +88,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
 
   const recognitionRef = useRef<any>(null);
   const accumulatedTextRef = useRef<string>('');
+  const isRecordingRef = useRef<boolean>(false);
 
   // --- Auto-scrolling Refs ---
   const panel1Ref = useRef<HTMLDivElement>(null);
@@ -112,11 +114,15 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
   // Add a ref to track the last sent speech text to avoid duplicate updates
   const lastSentSpeechRef = useRef<string>('');
 
+  // Keep a ref in sync with state to avoid stale closures in event handlers
+  useEffect(() => {
+    isRecordingRef.current = isRecording;
+  }, [isRecording]);
+
   // Add this state variable at the top of the component with other state declarations
   const [isTestingFirebase, setIsTestingFirebase] = useState<boolean>(false);
 
-  // 1. Add state at top
-  const [rawSpeechSnapshot, setRawSpeechSnapshot] = useState<any>(null);
+  // Debug state removed for production UI
 
   const languageOptions = [
     { value: 'en-US', label: 'English (US)' },
@@ -220,7 +226,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
       try {
         const voices = await getVoices();
         setAvailableVoices(voices);
-        const defaultVoice = voices.find((v: SpeechSynthesisVoice) => v.lang.includes(targetLanguage.split('-')[0])) || voices[0];
+        const defaultVoice = targetLanguage
+          ? voices.find((v: SpeechSynthesisVoice) => v.lang.includes(targetLanguage.split('-')[0])) || voices[0]
+          : voices[0];
         setSelectedVoice(defaultVoice);
       } catch (error) {
         console.error('Error initializing voices:', error);
@@ -250,17 +258,25 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
   useEffect(() => {
     const setupRecognition = () => {
       try {
-        const recognition = getSpeechRecognition();
-        if (!recognition) {
+        const SR = getSpeechRecognition();
+        if (!SR) {
           setErrorMessage('Speech recognition is not supported.');
           return;
         }
+        if (!sourceLanguage) {
+          setErrorMessage('Please select source and target languages to start.');
+          return;
+        }
+        const recognition = new SR();
 
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = sourceLanguage;
 
         recognition.onresult = (event: any) => {
+          if (!isRecordingRef.current) {
+            return;
+          }
           let interimTranscript = '';
           let finalTranscriptPart = '';
           
@@ -288,6 +304,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
             console.log("[Speech] Updating active transcription:", currentFullText);
             // Use the improved function instead
             updateLiveTranscriptionImproved(currentFullText);
+            setActiveTranscription(currentFullText);
           }
           
           // Also update conversation turns for consistency
@@ -305,9 +322,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
               speakerUid: currentUser.uid,
               speakerName: myData.name,
               speakerRole: myData.role,
-              originalLang: sourceLanguage,
+              originalLang: sourceLanguage || 'en-US',
               originalText: currentFullText,
-              targetLang: targetLanguage,
+              targetLang: targetLanguage || 'es-ES',
               translatedText: "..." // Translation pending
             };
             
@@ -359,16 +376,16 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
 
         recognition.onend = () => {
           console.log("[Speech] Recognition ended");
-          if (isRecording && recognitionRef.current) {
+          if (isRecordingRef.current && recognitionRef.current) {
              try {
-                 setTimeout(() => {
-                     if (isRecording && recognitionRef.current && !['not-allowed', 'service-not-allowed'].includes(recognitionRef.current.error)) {
-                         console.log("[Speech] Restarting recognition after end");
-                         recognitionRef.current.start();
-                     } else {
-                         setIsRecording(false);
-                     }
-                 }, 300);
+               setTimeout(() => {
+                 if (isRecordingRef.current && recognitionRef.current && !['not-allowed', 'service-not-allowed'].includes(recognitionRef.current.error)) {
+                     console.log("[Speech] Restarting recognition after end");
+                     recognitionRef.current.start();
+                 } else {
+                     setIsRecording(false);
+                 }
+               }, 300);
              } catch (e) {
                  console.error("[Speech] Error restarting recognition:", e);
                  setIsRecording(false);
@@ -436,21 +453,24 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
           lastSentSpeechRef.current = '';
         }
         
-        const textToTranslate = accumulatedTextRef.current.trim();
-        console.log("[toggleRecording] Final text to translate:", textToTranslate);
+        // Combine accumulated final parts with any remaining interim text
+        const finalFullText = (accumulatedTextRef.current + (activeTranscription || '')).trim();
+        console.log("[toggleRecording] Final text to translate (combined):", finalFullText);
         
-        if (textToTranslate) {
-          console.log("[Stop Record] Translating full transcript:", textToTranslate);
+        if (finalFullText) {
+          console.log("[Stop Record] Translating full transcript:", finalFullText);
           // Remove any temporary transcript displays before translation
           setConversationTurns(prev => prev.filter(turn => !turn.id.startsWith('temp-')));
           // Start translation process
-          handleTranslation(textToTranslate); 
+          handleTranslation(finalFullText); 
         } else {
           console.warn("[toggleRecording] No text accumulated to translate");
           // Just clean up the temporary transcripts if there's nothing to translate
           setConversationTurns(prev => prev.filter(turn => !turn.id.startsWith('temp-')));
         }
+        // Clear after using it
         accumulatedTextRef.current = '';
+        setActiveTranscription('');
   
         // Clean up typing status when stopping recording
         const currentUser = auth?.currentUser;
@@ -472,10 +492,11 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
         if (!recognitionRef.current) {
           console.error("[toggleRecording] Recognition not ready, creating new instance");
           try {
-            recognitionRef.current = getSpeechRecognition();
-            if (!recognitionRef.current) {
+            const SR = getSpeechRecognition();
+            if (!SR) {
               throw new Error("Could not initialize speech recognition");
             }
+            recognitionRef.current = new SR();
             
             // Re-initialize recognition settings
             recognitionRef.current.continuous = true;
@@ -510,6 +531,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                 console.log("[Speech] Updating active transcription:", currentFullText);
                 // Use the improved function instead
                 updateLiveTranscriptionImproved(currentFullText);
+                setActiveTranscription(currentFullText);
               }
               
               // Also update conversation turns for consistency
@@ -527,9 +549,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                   speakerUid: currentUser.uid,
                   speakerName: myData.name,
                   speakerRole: myData.role,
-                  originalLang: sourceLanguage,
+                  originalLang: sourceLanguage || 'en-US',
                   originalText: currentFullText,
-                  targetLang: targetLanguage,
+                  targetLang: targetLanguage || 'es-ES',
                   translatedText: "..." // Translation pending
                 };
                 
@@ -575,10 +597,10 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
             
             recognitionRef.current.onend = () => {
               console.log("[Speech] Recognition ended");
-              if (isRecording && recognitionRef.current) {
+              if (isRecordingRef.current && recognitionRef.current) {
                  try {
                      setTimeout(() => {
-                         if (isRecording && recognitionRef.current && !['not-allowed', 'service-not-allowed'].includes(recognitionRef.current.error)) {
+                         if (isRecordingRef.current && recognitionRef.current && !['not-allowed', 'service-not-allowed'].includes(recognitionRef.current.error)) {
                              console.log("[Speech] Restarting recognition after end");
                              recognitionRef.current.start();
                          } else {
@@ -600,9 +622,14 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
   
         recognitionRef.current.lang = sourceLanguage;
         try {
+          if (!sourceLanguage || !targetLanguage) {
+            setErrorMessage('Select both source and target languages first.');
+            return;
+          }
           console.log("[toggleRecording] Starting recognition with language:", sourceLanguage);
-        recognitionRef.current.start();
-        setIsRecording(true);
+          recognitionRef.current.lang = sourceLanguage;
+          recognitionRef.current.start();
+          setIsRecording(true);
         } catch (startError) {
           console.error("[toggleRecording] Error starting recognition:", startError);
           setErrorMessage("Failed to start speech recognition. Please try again.");
@@ -649,9 +676,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
           speakerUid: currentUser.uid,
           speakerName: currentSpeakerData.name,
           speakerRole: currentSpeakerData.role,
-          originalLang: sourceLanguage,
+          originalLang: sourceLanguage!,
           originalText: textToTranslate,
-          targetLang: targetLanguage,
+          targetLang: targetLanguage!,
           translatedText: "Translating..." // Show that translation is in progress
         };
         
@@ -662,10 +689,13 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
       // Tracking translation step
       const translationStartTime = Date.now();
       
+      if (!sourceLanguage || !targetLanguage) {
+        throw new Error('Languages not selected');
+      }
       const translatedResult = await translateWithAI(
         textToTranslate, 
-        sourceLanguage,
-        targetLanguage
+        sourceLanguage!,
+        targetLanguage!
       );
       
       // Calculate translation time
@@ -728,7 +758,14 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
         prev.filter(turn => !turn.id.startsWith('temp-'))
       );
       
-      setErrorMessage(`Translation Error: ${error.message || 'Unknown error'}`);
+      // Provide a friendlier message for rate limits (with project context)
+      const msg = String(error?.message || '').toLowerCase();
+      const isRate = msg.includes('rate') || msg.includes('429') || msg.includes('temporarily rate-limited');
+      const friendly = isRate
+        ? 'This personal project uses free, rate-limited AI models. The translation service is temporarily rate-limited. Please wait 1–2 minutes and try again.'
+        : `Translation Error: ${error.message || 'Unknown error'}`;
+      setErrorMessage(friendly);
+      setShowRateLimitBanner(isRate);
     } finally {
       setIsTranslating(false);
     }
@@ -773,8 +810,30 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
   }, [conversationTurns]); // Scroll when turns change
 
   // --- Dynamic Labels ---
-  const sourceLangLabel = useMemo(() => languageOptions.find(l => l.value === sourceLanguage)?.label || sourceLanguage, [sourceLanguage]);
-  const targetLangLabel = useMemo(() => languageOptions.find(l => l.value === targetLanguage)?.label || targetLanguage, [targetLanguage]);
+  const sourceLangLabel = useMemo(() => sourceLanguage ? (languageOptions.find(l => l.value === sourceLanguage)?.label || sourceLanguage) : 'Select source', [sourceLanguage]);
+  const targetLangLabel = useMemo(() => targetLanguage ? (languageOptions.find(l => l.value === targetLanguage)?.label || targetLanguage) : 'Select target', [targetLanguage]);
+
+  // Example card to set expectations for users
+  const ExampleCard = () => (
+    <div style={{
+      margin: '0.75rem 0 1rem',
+      padding: '0.75rem 1rem',
+      borderRadius: 8,
+      background: 'rgba(59,130,246,0.15)',
+      border: '1px solid rgba(59,130,246,0.35)',
+      color: 'rgba(255,255,255,0.95)'
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 6 }}>Example</div>
+      <div style={{ opacity: 0.95 }}>
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ fontWeight: 600 }}>Doctor phrasing:</span> “You have community-acquired pneumonia; we’ll start empirical antibiotics covering typical pathogens.”
+        </div>
+        <div>
+          <span style={{ fontWeight: 600 }}>Patient-friendly:</span> “You have a lung infection you caught outside the hospital. We’ll start antibiotics that treat the usual germs.”
+        </div>
+      </div>
+    </div>
+  );
 
   // Additional styles for different message states
   const messageStyles = {
@@ -977,11 +1036,11 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
     conversationPanel: {
       flexGrow: 1,
       overflowY: 'auto' as 'auto',
-      padding: '0.75rem',
+      padding: '1rem',
       background: 'rgba(255, 255, 255, 0.07)',
-      borderRadius: '8px',
-        fontSize: '0.9rem',
-      lineHeight: 1.6,
+      borderRadius: '10px',
+      fontSize: '1rem',
+      lineHeight: 1.7,
       color: 'white',
       scrollBehavior: 'smooth' as 'smooth',
       boxShadow: 'inset 0 2px 4px rgba(0, 0, 0, 0.1)'
@@ -1005,8 +1064,8 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
       whiteSpace: 'pre-wrap' as 'pre-wrap',
       wordBreak: 'break-word' as 'break-word',
       transition: 'all 0.3s ease',
-      padding: '8px 12px',
-      borderRadius: '6px',
+      padding: '10px 14px',
+      borderRadius: '8px',
       backgroundColor: 'rgba(255, 255, 255, 0.03)'
     },
     errorDisplay: {
@@ -1014,12 +1073,12 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
         bottom: '2rem',
         left: '50%',
         transform: 'translateX(-50%)',
-        maxWidth: '32rem',
+        maxWidth: '40rem',
         width: 'calc(100% - 2rem)',
         zIndex: 50,
-        background: 'linear-gradient(to right, #450a0a, #7f1d1d)',
-        border: '1px solid #b91c1c',
-        color: 'white',
+        background: 'rgba(31,41,55,0.95)',
+        border: '1px solid rgba(234,179,8,0.35)',
+        color: '#fde68a',
         padding: '1rem 1.25rem',
         borderRadius: '0.5rem',
         boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.1)',
@@ -1181,7 +1240,6 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
     console.log(`[TranslationApp] 👂 Setting up real-time speech listener for room: ${roomCode}`);
     const unsubscribe = listenToRealtimeSpeech(roomCode, (speeches) => {
       console.log('[TranslationApp] 📊 Raw speeches received callback:', speeches);
-      setRawSpeechSnapshot(speeches);
       // DEBUG: show all speeches regardless of speaker
       setOtherUsersSpeaking(speeches);
     });
@@ -1230,8 +1288,8 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
         speakerUid: currentUser.uid,
         speakerName: myData.name,
         speakerRole: myData.role,
-        originalLang: sourceLanguage,
-        targetLang: targetLanguage
+        originalLang: sourceLanguage || 'en-US',
+        targetLang: targetLanguage || 'es-ES'
       };
       
       // Log the exact data being sent
@@ -1371,8 +1429,8 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                   speakerUid: currentUser.uid,
                   speakerName: myData?.name || "Test User",
                   speakerRole: myData?.role || "patient",
-                  originalLang: sourceLanguage,
-                  targetLang: targetLanguage
+                  originalLang: sourceLanguage || 'en-US',
+                  targetLang: targetLanguage || 'es-ES'
                 };
                 
                 // Try to send it using our function
@@ -1982,7 +2040,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
       console.log('[ConnectionStatus] Manual reconnection attempt initiated');
       setStatus('reconnecting');
       
-      const recoveryRef = ref(db, `rooms/${currentRoomCode}/recovery/${currentUser.uid}`);
+      const recoveryRef = ref(db, `rooms/${currentRoomCode}/recovery/${currentUser!.uid}`);
       set(recoveryRef, {
         timestamp: Date.now(),
         status: 'manual_recovery'
@@ -2235,6 +2293,40 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
 
   return (
     <div style={styles.container}>
+      {/* Top Rate Limit Banner */}
+      {showRateLimitBanner && errorMessage && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          zIndex: 2000,
+          background: 'rgba(234,179,8,0.95)',
+          color: '#111827',
+          padding: '0.75rem 1rem',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.2)'
+        }} role="alert">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                <line x1="12" y1="9" x2="12" y2="13"></line>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+              <strong>Heads up</strong>
+              <span style={{ opacity: 0.9 }}>{errorMessage}</span>
+            </div>
+            <button onClick={() => { setShowRateLimitBanner(false); }} style={{
+              background: 'transparent',
+              border: 'none',
+              fontSize: '1.25rem',
+              lineHeight: 1,
+              cursor: 'pointer',
+              color: '#111827'
+            }} aria-label="Dismiss rate limit notice">×</button>
+          </div>
+        </div>
+      )}
       <style>
         {`
           @keyframes pulse {
@@ -2415,14 +2507,16 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
           {/* Source Language */}
           <div style={styles.selectorContainer}>
             <label htmlFor="sourceLanguage" style={styles.label}>Source Language</label>
-            <select id="sourceLanguage" value={sourceLanguage} onChange={(e) => setSourceLanguage(e.target.value)} disabled={isRecording} style={styles.select}>
+            <select id="sourceLanguage" value={sourceLanguage ?? ''} onChange={(e) => setSourceLanguage(e.target.value)} disabled={isRecording} style={styles.select}>
+              <option value="" disabled>Select source language</option>
               {languageOptions.map((lang) => (<option key={lang.value} value={lang.value} style={{ backgroundColor: '#2c3347' }}>{lang.label}</option>))}
             </select>
           </div>
           {/* Target Language */}
           <div style={styles.selectorContainer}>
             <label htmlFor="targetLanguage" style={styles.label}>Target Language</label>
-            <select id="targetLanguage" value={targetLanguage} onChange={(e) => setTargetLanguage(e.target.value)} disabled={isRecording} style={styles.select}>
+            <select id="targetLanguage" value={targetLanguage ?? ''} onChange={(e) => setTargetLanguage(e.target.value)} disabled={isRecording} style={styles.select}>
+              <option value="" disabled>Select target language</option>
               {languageOptions.map((lang) => (<option key={lang.value} value={lang.value} style={{ backgroundColor: '#2c3347' }}>{lang.label}</option>))}
             </select>
           </div>
@@ -2457,7 +2551,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
            <button
              onClick={toggleRecording}
              style={styles.recordButton(isRecording)}
-             disabled={isTranslating}
+             disabled={isTranslating || !sourceLanguage || !targetLanguage}
            >
              {isRecording ? (
                  <>
@@ -2561,6 +2655,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                           </div>
         ))}
 
+        {/* Example expectations */}
+        <ExampleCard />
+
         {/* Transcript Grid */}
         <div style={styles.transcriptGrid}>
           {/* Panel 1: User's Language / Original */}
@@ -2574,10 +2671,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
             {/* Replace textarea with scrollable div and map turns */}
             <div ref={panel1Ref} style={styles.conversationPanel}>
               {conversationTurns.length === 0 && (
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic', textAlign: 'center', marginTop: '3rem' }}>
-                  <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'rgba(255,255,255,0.2)', margin: '0 auto 1rem', display: 'block' }}>
-                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                  </svg>
+                <p style={{ color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', textAlign: 'center', margin: 0, padding: '1rem' }}>
                   Conversation will appear here...
                 </p>
               )}
@@ -2628,8 +2722,9 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                     <p className="message-bubble" style={{
                       ...styles.turnText,
                       ...messageStyle,
-                      backgroundColor: isMyTurn ? 'rgba(59, 130, 246, 0.1)' : 'rgba(139, 92, 246, 0.1)',
-                      borderLeft: isMyTurn ? '3px solid rgba(59, 130, 246, 0.5)' : '3px solid rgba(139, 92, 246, 0.5)',
+                      backgroundColor: isMyTurn ? 'rgba(59, 130, 246, 0.08)' : 'rgba(59, 130, 246, 0.08)',
+                      borderLeft: '3px solid rgba(59, 130, 246, 0.5)',
+                      margin: 0
                     }}>
                       {displayText || '(...)'}
                       {isTemp && !isTranslatingTemp && <span style={{color: 'rgba(255,255,255,0.5)', marginLeft: '4px'}}>...</span>}
@@ -2652,7 +2747,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
              {/* Replace textarea with scrollable div and map turns */}
             <div ref={panel2Ref} style={styles.conversationPanel}>
               {conversationTurns.length === 0 && (
-                 <p style={{ color: 'rgba(255,255,255,0.5)', fontStyle: 'italic' }}>Conversation will appear here...</p>
+                 <p style={{ color: 'rgba(255,255,255,0.6)', fontStyle: 'italic', textAlign: 'center', margin: 0, padding: '1rem' }}>Conversation will appear here...</p>
               )}
               {conversationTurns.map((turn) => {
                 const { 
@@ -2695,7 +2790,13 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
                         <span className="typing-indicator"></span> Translating
                       </span>}
                     </span>
-                    <p style={{...styles.turnText, ...messageStyle}}>
+                    <p style={{
+                      ...styles.turnText,
+                      ...messageStyle,
+                      backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                      borderLeft: '3px solid rgba(59, 130, 246, 0.5)',
+                      margin: 0
+                    }}>
                       {displayText || '(...)'}
                       {isTemp && <span style={{color: 'rgba(255,255,255,0.5)', marginLeft: '4px'}}>...</span>}
                     </p>
@@ -2709,7 +2810,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
       </div>
 
       {/* Error Display */}
-      {errorMessage && (
+      {errorMessage && !showRateLimitBanner && (
         <div style={styles.errorDisplay}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#f87171' }}>
@@ -2723,33 +2824,7 @@ const TranslationApp = ({ roomCode, onLeaveRoom }: TranslationAppProps) => {
         </div>
       )}
 
-      {/* Realtime Speech Panel - now using the imported component */}
-      <RealtimeSpeechPanel 
-        isConnected={true} // You would want to derive this from your connection state
-        otherUserSpeaking={otherUsersSpeaking.length > 0}
-        otherUserText={otherUsersSpeaking.length > 0 ? otherUsersSpeaking[0].text || "" : ""}
-      />
-
-      {/* Enhanced Real-time Speech Display - only show if testing or there are actual messages */}
-      {(otherUsersSpeaking.length > 0 || isTestingFirebase) && (
-        <EnhancedRealtimeSpeechDisplay />
-      )}
-
-      {/* Connection Status Indicator */}
-      <ConnectionStatusIndicator />
-
-      {/* Debug: show raw realtimeSpeech snapshot */}
-      {rawSpeechSnapshot && (
-        <pre style={{
-          background: 'rgba(0,0,0,0.5)',
-          color: 'white',
-          padding: '1rem',
-          overflowX: 'auto',
-          fontSize: '0.75rem'
-        }}>
-          {JSON.stringify(rawSpeechSnapshot, null, 2)}
-        </pre>
-      )}
+      {/* Debug and extra panels removed for cleaner demo UI */}
 
     </div>
   );

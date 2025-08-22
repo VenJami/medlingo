@@ -1,95 +1,94 @@
-# MedLIngo: Healthcare Translation Web App
+# MedLIngo – Healthcare Translation Web App
 
-MedLIngo is a real-time healthcare translation web application that facilitates communication between patients and healthcare providers who speak different languages. The app leverages the power of AI to provide accurate medical translations and speech recognition.
+Real-time speech-to-text and AI translation prototype for doctor–patient conversations.
 
 ## Features
 
-- Real-time voice-to-text transcription
-- AI-powered translation optimized for medical terminology
-- Text-to-speech capability for translated content
-- Multi-device communication with room-based sessions
-- Mobile-responsive design
-- **Browser compatibility check (recommends Chrome for speech features)**
+- Real-time voice-to-text transcription (Web Speech API)
+- AI translation optimized for medical terminology (OpenRouter)
+- Text-to-speech for translated content
+- Dual-panel conversation turns (original vs translated)
+- Room-based sessions (Doctor/Patient) via Firebase
+- Mobile-responsive design and Chrome compatibility checks
 
 ## Browser Compatibility
 
-**Important:** This application utilizes the Web Speech API for real-time voice transcription. Currently, browser support for this API varies. 
+This app uses the Web Speech API. Support varies by browser:
 
-- **Google Chrome (or Chromium-based browsers like Brave, new Edge versions)** provide the most reliable experience for speech recognition features.
-- Other browsers (like Firefox, Safari, older Edge) may have limited or no support. 
-- The application will display a notification modal on the home screen if your browser is detected as unsupported, recommending you switch to Chrome.
+- Chrome (desktop/mobile) is recommended for speech recognition.
+- Other browsers may have limited or no support; the Home screen warns if unsupported.
 
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js (latest LTS version)
-- NPM or Yarn
-- Firebase account
-- **Google Chrome (Recommended for full functionality)**
+- Node.js 22 LTS (recommended) and npm 10+
+- Google Chrome (best Web Speech API support)
+- Firebase project (Realtime Database + Anonymous Auth)
+- OpenRouter account and API key
 
 ### Installation
 
 1. Clone the repository
-   ```
-git clone https://github.com/yourusername/medlingo.git
+```bash
+git clone https://github.com/VenJami/medlingo.git
 cd medlingo
 ```
 
 2. Install dependencies
-   ```
+```bash
 npm install
 ```
 
-3. Set up Firebase 
-   - Create a new Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
-   - Enable Realtime Database and set up security rules
-   - Enable Anonymous Authentication
-   - Create a web app in your Firebase project
-   - Copy the Firebase configuration
+3. Create a `.env.local` file in the project root with:
+```bash
+# Firebase (client-side)
+NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.firebaseio.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
 
-4. Create a `.env.local` file in the root directory with the following variables:
-   ```
-   # Firebase Configuration
-   NEXT_PUBLIC_FIREBASE_API_KEY=your-api-key
-   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-project-id.firebaseapp.com
-   NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://your-project-id-default-rtdb.firebaseio.com
-   NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-project-id
-   NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-project-id.appspot.com
-   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=your-messaging-sender-id
-   NEXT_PUBLIC_FIREBASE_APP_ID=your-app-id
-
-   # GitHub Marketplace Model Credentials (if required)
-   GITHUB_MARKETPLACE_API_CREDENTIALS=your-credentials # Check GitHub Marketplace model documentation for required credentials
-   ```
-
-5. Run the development server
-   ```
-npm run dev
+# OpenRouter (server-side)
+OPENROUTER_API_KEY=sk-or-...
+# Optional: choose a model (defaults to free model)
+OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free
 ```
 
-6. Open your browser and navigate to [http://localhost:3000](http://localhost:3000)
+4. Run the development server
+```bash
+npm run dev
+# visit http://localhost:3000 (or the printed port)
+```
 
-## Firebase Security Rules
+## Firebase Security Rules (starter)
 
-For proper functionality, configure your Firebase Realtime Database security rules as follows:
-
+Use a conservative ruleset while prototyping. Adjust to your needs:
 ```json
 {
   "rules": {
+    "+rules_version": "2",
     "rooms": {
-      "$room_id": {
+      "$room": {
         ".read": true,
         ".write": "auth != null",
         "participants": {
-          "$user_id": {
+          "$uid": {
             ".read": true,
-            ".write": "auth != null && auth.uid === $user_id"
+            ".write": "auth != null && auth.uid == $uid"
           }
         },
         "transcripts": {
           ".read": true,
           ".write": "auth != null"
+        },
+        "realtimeSpeech": {
+          "$uid": {
+            ".read": true,
+            ".write": "auth != null && auth.uid == $uid"
+          }
         }
       }
     }
@@ -99,30 +98,34 @@ For proper functionality, configure your Firebase Realtime Database security rul
 
 ## Usage
 
-1. **Open the app in Google Chrome (recommended).** If using an unsupported browser, you will see a notification.
-2. Open the app on two separate devices or browser windows.
-3. On the first device, click "Create Translation Room" (enter name/role).
-4. Note the room code that appears.
-5. On the second device, enter the room code and your name, then click "Join Room".
-6. Begin speaking in your selected language.
-7. The speech will be transcribed, translated, and displayed on both devices.
-8. Use the "Speak" button to hear the translation.
+1. Open Chrome → allow microphone access.
+2. Create a room (choose name and role) and share the 6‑char code.
+3. Second participant joins with the code; roles are enforced (Doctor/Patient).
+4. Select Source and Target languages → Start Recording → speak → Stop to translate.
+5. Both panels update with turn‑by‑turn conversation (original vs translated).
+
+Example you can try:
+
+- Doctor phrasing: “You have community‑acquired pneumonia; we’ll start empirical antibiotics covering typical pathogens.”
+- Patient‑friendly: “You have a lung infection you caught outside the hospital. We’ll start antibiotics that treat the usual germs.”
 
 ## Technologies Used
 
-- Next.js
-- React
-- TypeScript
-- Firebase (Realtime Database and Authentication)
-- Web Speech API
-- Meta-Llama-3.1-70B-Instruct (via GitHub Marketplace)
+- Next.js, React, TypeScript
+- Firebase Realtime Database, Anonymous Auth
+- Web Speech API (SpeechRecognition, SpeechSynthesis)
+- OpenRouter models (e.g., meta-llama/llama-3.3-70b-instruct:free)
 - Tailwind CSS
+
+## Disclaimer
+
+This is a personal prototype for demonstration/education. It is not a medical device and should not be used for diagnosis or treatment. Free models may be rate‑limited; if you see a rate‑limit notice, wait 1–2 minutes and try again.
+
+## Author & Links
+
+- GitHub: https://github.com/VenJami
+- LinkedIn: https://www.linkedin.com/in/ravenjaminal/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Acknowledgments
-
-- Healthcare professionals who provided input on medical translation needs
-- The open-source community for the amazing tools that made this project possible
+MIT. See `LICENSE` for details.

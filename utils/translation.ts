@@ -1,5 +1,4 @@
-import ModelClient, { isUnexpected } from "@azure-rest/ai-inference";
-import { AzureKeyCredential } from "@azure/core-auth";
+// Using OpenRouter as the translation backend (OpenAI-compatible API)
 
 // Get language name from language code
 const getLanguageName = (code: string): string => {
@@ -21,19 +20,12 @@ const getLanguageName = (code: string): string => {
 // Simple in-memory cache for translations to reduce API calls
 const translationCache: Record<string, string> = {};
 
-// Initialize Azure AI Inference Client
-// Ensure GITHUB_TOKEN is set in your .env.local file
-const token = process.env.GITHUB_TOKEN;
+// Ensure OPENROUTER_API_KEY is set in your .env.local file (server-side only)
+const token = process.env.OPENROUTER_API_KEY;
+const openrouterModel = process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.3-70b-instruct:free';
 if (!token) {
-  console.error("GITHUB_TOKEN environment variable is not set.");
-  // Optionally throw an error or provide a default behavior
+  console.error("OPENROUTER_API_KEY environment variable is not set.");
 }
-const client = token
-  ? ModelClient(
-      "https://models.inference.ai.azure.com",
-      new AzureKeyCredential(token)
-    )
-  : null; // Handle the case where the token might be missing
 
 export const translateText = async (
   text: string,
@@ -41,8 +33,8 @@ export const translateText = async (
   targetLanguage: string
 ): Promise<string> => {
   if (!text.trim()) return '';
-  if (!client) {
-    console.error("Azure AI Inference client is not initialized due to missing GITHUB_TOKEN.");
+  if (!token) {
+    console.error("Translation token (GITHUB_TOKEN) is missing.");
     throw new Error('Translation service is not configured.');
   }
 
@@ -65,39 +57,49 @@ export const translateText = async (
     const userPrompt = `Translate the following medical text from ${sourceLang} to ${targetLang}:\n\n\"${text}\"\n\nTranslation:`;
 
 
-    const response = await client.path("/chat/completions").post({
-      body: {
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        // OpenRouter model (configurable via env)
+        model: openrouterModel,
+        temperature: 0.3,
+        max_tokens: 4000,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
-        ],
-        model: "Meta-Llama-3.1-70B-Instruct", // Use the Llama model
-        temperature: 0.3, // Keep low for consistency
-        max_tokens: 4000, // Use the model's max output token limit
-        // top_p: 0.1 // Generally not recommended to use both temp and top_p
-      },
-      // Set content type explicitly if needed, though SDK usually handles it
-      // headers: { 'Content-Type': 'application/json' }
+        ]
+      })
     });
 
-    if (isUnexpected(response)) {
-        // Log the detailed error from the Azure AI service
-        console.error('Azure AI Inference API Error:', response.body?.error || response.status);
-        // Provide more specific error details if available
-        const errorMessage = response.body?.error?.message || `Translation failed with status code ${response.status}. Check server logs.`;
-        throw new Error(errorMessage);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({} as any));
+      console.error('OpenRouter API Error:', err || response.status);
+      const errorMessage =
+        err?.error?.metadata?.raw ||
+        err?.error?.message ||
+        err?.message ||
+        (typeof err === 'string' ? err : JSON.stringify(err)) ||
+        `Translation failed with status code ${response.status}.`;
+      const e: any = new Error(errorMessage);
+      e.status = response.status;
+      throw e;
     }
 
-    const translation = response.body.choices?.[0]?.message?.content?.trim() || text;
+    const data = await response.json();
+    const translation = data?.choices?.[0]?.message?.content?.trim() || text;
 
     // Cache the result for future use
     translationCache[cacheKey] = translation;
 
     return translation;
   } catch (error: any) {
-      // Catch errors from the SDK call itself or the isUnexpected check
-      console.error('Translation function error:', error);
-      // Re-throw a user-friendly error message
-      throw new Error(error.message || 'Translation failed. Please check server logs.');
+    console.error('Translation function error:', error);
+    throw new Error(error.message || 'Translation failed. Please check server logs.');
   }
 }; 

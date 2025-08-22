@@ -19,6 +19,7 @@
 # misc
 .DS_Store
 *.pem
+Thumbs.db
 
 # debug
 npm-debug.log*
@@ -27,9 +28,23 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env
+.env.*
 
 # vercel
 .vercel
+
+# editors
+.vscode/
+.idea/
+
+# project-specific
+memory-bank/
+image/
+
+# turbo/cache
+.turbo/
+.cache/
 
 # typescript
 *.tsbuildinfo
