@@ -1,3 +1,41 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Node
+node_modules/
+
+# Next.js
+.next/
+out/
+.vercel/
+next-dev.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.swp
+
+# TypeScript
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Local assets not meant for repo
+image/
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
 # dependencies
