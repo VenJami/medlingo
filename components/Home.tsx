@@ -5,6 +5,7 @@ import { signInAnonymouslyWithFirebase, createRoom, joinRoom } from '../utils/fi
 import TranslationApp from './TranslationApp';
 import CreateRoomModal from './CreateRoomModal';
 import { getSpeechRecognition } from '../utils/speechUtils';
+import Header from './Header';
 
 type Role = 'doctor' | 'patient';
 
@@ -125,8 +126,10 @@ const Home = () => {
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #1a1f2e 0%, #2c3347 100%)',
       color: '#ffffff',
-      padding: '2rem'
+      padding: '2rem',
+      paddingTop: '4.5rem'
     }}>
+      <Header />
       {isCompatibilityModalOpen && (
         <div style={{
           position: 'fixed',
@@ -373,6 +376,87 @@ const Home = () => {
               </div>
             </>
           )}
+        </div>
+      </div>
+
+      <div id="how-it-works" style={{ maxWidth: 1200, width: '100%', marginTop: '2rem' }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          padding: '1.25rem',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+        }}>
+          <div style={{ fontWeight: 700, color: '#93c5fd', marginBottom: 6 }}>How it works</div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.95rem', lineHeight: 1.65 }}>
+            Real-time speech-to-text and translation for healthcare conversations.
+          </div>
+          <ul style={{ margin: '0.5rem 0 0', paddingLeft: '1.1rem', color: 'rgba(255,255,255,0.8)', fontSize: '0.9rem', lineHeight: 1.6 }}>
+            <li>Select source and target languages</li>
+            <li>Tap <strong>Start Recording</strong>, speak clearly, then tap <strong>Stop</strong></li>
+            <li>Review original and translated speech in the transcript panels</li>
+          </ul>
+        </div>
+      </div>
+
+      <div id="faq" style={{ maxWidth: 1200, width: '100%', marginTop: '1rem' }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          padding: '1.25rem',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+        }}>
+          <div style={{ fontWeight: 700, color: '#a7f3d0', marginBottom: 6 }}>FAQ</div>
+          <div style={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.9rem', lineHeight: 1.65 }}>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>Is this a medical device?</div>
+              <div> No. This is a personal prototype for demonstration and educational use only.</div>
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontWeight: 600 }}>Which browsers are supported?</div>
+              <div> Best experienced in the latest Google Chrome due to Web Speech API support.</div>
+            </div>
+            <div>
+              <div style={{ fontWeight: 600 }}>Why is translation sometimes slow?</div>
+              <div> The app may use rate-limited AI services. If it’s slow, wait a minute and try again.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="connect" style={{ maxWidth: 1200, width: '100%', marginTop: '1rem' }}>
+        <div style={{
+          background: 'rgba(255,255,255,0.05)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 12,
+          padding: '1.25rem',
+          boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+        }}>
+          <div style={{ fontWeight: 700, color: '#fde68a', marginBottom: 6 }}>Connect</div>
+          <div style={{ marginTop: 6, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <a href="https://github.com/VenJami" target="_blank" rel="noreferrer" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, color: '#93c5fd', textDecoration: 'none',
+              background: 'linear-gradient(180deg, rgba(59,130,246,0.18), rgba(59,130,246,0.10))',
+              border: '1px solid rgba(59,130,246,0.35)', padding: '0.5rem 0.75rem', borderRadius: 999
+            }}>
+              GitHub
+            </a>
+            <a href="https://www.linkedin.com/in/ravenjaminal/" target="_blank" rel="noreferrer" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, color: '#93c5fd', textDecoration: 'none',
+              background: 'linear-gradient(180deg, rgba(59,130,246,0.18), rgba(59,130,246,0.10))',
+              border: '1px solid rgba(59,130,246,0.35)', padding: '0.5rem 0.75rem', borderRadius: 999
+            }}>
+              LinkedIn
+            </a>
+            <a href="mailto:jaminalraven@gmail.com" style={{
+              display: 'inline-flex', alignItems: 'center', gap: 8, color: '#93c5fd', textDecoration: 'none',
+              background: 'linear-gradient(180deg, rgba(59,130,246,0.18), rgba(59,130,246,0.10))',
+              border: '1px solid rgba(59,130,246,0.35)', padding: '0.5rem 0.75rem', borderRadius: 999
+            }}>
+              Email
+            </a>
+          </div>
         </div>
       </div>
 
